@@ -416,8 +416,8 @@ h1 {
   #settings input[type="number"],
   #settings select { font-size: 14px; padding: 5px 6px; }
 
-  /* Notes panel: remove fixed height, let page scroll */
-  #notes-list { max-height: none; }
+  /* Notes panel: fixed height so it scrolls internally, not the page */
+  #notes-list { max-height: 36vh; }
   #notes-card { gap: 10px; }
 }
 </style>
@@ -925,7 +925,13 @@ function highlightCurrentMark(t) {
     const wasActive = item.classList.contains('active');
     item.classList.toggle('active', isActive);
     if (isActive && !wasActive && !scrolled) {
-      item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      // Scroll within the notes list only — never the page
+      const listTop  = notesList.getBoundingClientRect().top;
+      const itemTop  = item.getBoundingClientRect().top;
+      const offset   = itemTop - listTop;
+      if (offset < 0 || offset + item.offsetHeight > notesList.clientHeight) {
+        notesList.scrollBy({ top: offset - 8, behavior: 'smooth' });
+      }
       scrolled = true;
     }
   });
