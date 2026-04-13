@@ -380,6 +380,46 @@ h1 {
   padding: 48px 0;
   line-height: 1.8;
 }
+
+/* ── Mobile ────────────────────────────────────────────────────────────────── */
+@media (max-width: 700px) {
+  #app { padding: 12px 10px; }
+  h1 { font-size: 1.2rem; margin-bottom: 12px; }
+
+  #upload-section { margin: 24px auto; padding: 28px 20px; }
+
+  #main { grid-template-columns: 1fr; }
+
+  #video-container { max-height: 38vh; } /* leave room for controls */
+  #video { max-height: 38vh; }
+
+  .card { padding: 12px 10px; }
+
+  /* Bigger scrubber hit area */
+  #scrubber-wrap { height: 44px; margin-bottom: 10px; }
+  #scrubber-handle { width: 22px; height: 22px; }
+
+  /* Bigger selector handles */
+  #selector-wrap { height: 44px; margin-bottom: 6px; }
+  .sel-handle { width: 20px; height: 32px; }
+
+  /* Wider mark ticks so they're tappable */
+  .mark-tick { width: 8px; border-radius: 3px; }
+
+  /* Larger buttons, fill row */
+  .btn { padding: 12px 16px; font-size: 15px; }
+  #btn-row { gap: 8px; }
+  #btn-row .btn { flex: 1; text-align: center; }
+
+  /* Settings stack more naturally */
+  #settings { gap: 10px 16px; font-size: 14px; }
+  #settings input[type="number"],
+  #settings select { font-size: 14px; padding: 5px 6px; }
+
+  /* Notes panel: remove fixed height, let page scroll */
+  #notes-list { max-height: none; }
+  #notes-card { gap: 10px; }
+}
 </style>
 </head>
 <body>
@@ -661,30 +701,45 @@ function updateSelectorUI() {
   selectorFill.style.width = (b - a) + '%';
 }
 
-// ── Drag handling ─────────────────────────────────────────────────────────────
-scrubberWrap.addEventListener('mousedown', (e) => {
-  dragging = 'scrubber';
+// ── Drag handling (mouse + touch) ─────────────────────────────────────────────
+// Unified clientX so applyDrag works with both MouseEvent and TouchEvent
+function evtClientX(e) {
+  return e.touches ? e.touches[0].clientX : e.clientX;
+}
+
+function startDrag(type, e) {
+  dragging = type;
   applyDrag(e);
   e.preventDefault();
-});
+}
 
-selHandleA.addEventListener('mousedown', (e) => { dragging = 'sel-a'; e.preventDefault(); e.stopPropagation(); });
-selHandleB.addEventListener('mousedown', (e) => { dragging = 'sel-b'; e.preventDefault(); e.stopPropagation(); });
+scrubberWrap.addEventListener('mousedown',  (e) => startDrag('scrubber', e));
+scrubberWrap.addEventListener('touchstart', (e) => startDrag('scrubber', e), { passive: false });
+
+selHandleA.addEventListener('mousedown',  (e) => { dragging = 'sel-a'; e.preventDefault(); e.stopPropagation(); });
+selHandleA.addEventListener('touchstart', (e) => { dragging = 'sel-a'; e.preventDefault(); e.stopPropagation(); }, { passive: false });
+selHandleB.addEventListener('mousedown',  (e) => { dragging = 'sel-b'; e.preventDefault(); e.stopPropagation(); });
+selHandleB.addEventListener('touchstart', (e) => { dragging = 'sel-b'; e.preventDefault(); e.stopPropagation(); }, { passive: false });
 
 selectorWrap.addEventListener('mousedown', (e) => {
   if (e.target === selectorWrap || e.target === selectorTrack || e.target === selectorFill) {
     const f = frac(e, selectorWrap);
     dragging = Math.abs(f - selA) < Math.abs(f - selB) ? 'sel-a' : 'sel-b';
-    applyDrag(e);
-    e.preventDefault();
+    applyDrag(e); e.preventDefault();
   }
 });
+selectorWrap.addEventListener('touchstart', (e) => {
+  if (e.target === selectorWrap || e.target === selectorTrack || e.target === selectorFill) {
+    const f = frac(e, selectorWrap);
+    dragging = Math.abs(f - selA) < Math.abs(f - selB) ? 'sel-a' : 'sel-b';
+    applyDrag(e); e.preventDefault();
+  }
+}, { passive: false });
 
-document.addEventListener('mousemove', (e) => {
-  if (dragging) applyDrag(e);
-});
-
-document.addEventListener('mouseup', () => { dragging = null; });
+document.addEventListener('mousemove',  (e) => { if (dragging) applyDrag(e); });
+document.addEventListener('touchmove',  (e) => { if (dragging) { applyDrag(e); e.preventDefault(); } }, { passive: false });
+document.addEventListener('mouseup',    () => { dragging = null; });
+document.addEventListener('touchend',   () => { dragging = null; });
 
 function applyDrag(e) {
   if (dragging === 'scrubber') {
@@ -694,12 +749,12 @@ function applyDrag(e) {
     const f = snapToMark(frac(e, selectorWrap));
     selA = Math.max(0, Math.min(f, selB - 0.01));
     updateSelectorUI();
-    if (videoDuration) video.currentTime = selA * videoDuration; // preview only, don't update lastTime
+    if (videoDuration) video.currentTime = selA * videoDuration;
   } else if (dragging === 'sel-b') {
     const f = snapToMark(frac(e, selectorWrap));
     selB = Math.min(1, Math.max(f, selA + 0.01));
     updateSelectorUI();
-    if (videoDuration) video.currentTime = selB * videoDuration; // preview only, don't update lastTime
+    if (videoDuration) video.currentTime = selB * videoDuration;
   }
 }
 
@@ -717,7 +772,7 @@ function snapToMark(f) {
 
 function frac(e, el) {
   const r = el.getBoundingClientRect();
-  return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+  return Math.max(0, Math.min(1, (evtClientX(e) - r.left) / r.width));
 }
 
 // ── Seek helper ───────────────────────────────────────────────────────────────
