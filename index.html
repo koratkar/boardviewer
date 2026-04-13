@@ -1,0 +1,947 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Board Beta Viewer</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #f1f5f9;
+  color: #1e293b;
+  min-height: 100vh;
+}
+
+#app {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px 16px;
+}
+
+h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 20px;
+  color: #0f172a;
+}
+
+/* Upload */
+#upload-section {
+  background: white;
+  border-radius: 12px;
+  padding: 40px 32px;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  max-width: 520px;
+  margin: 80px auto;
+}
+
+#upload-section p { margin-bottom: 20px; color: #475569; font-size: 15px; }
+#upload-section .hint { font-size: 13px; color: #94a3b8; margin-top: 16px; line-height: 1.6; }
+#upload-section .hint a { color: #3b82f6; }
+
+#file-input-label {
+  display: inline-block;
+  background: #3b82f6;
+  color: white;
+  padding: 11px 28px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 15px;
+  transition: background 0.15s;
+}
+#file-input-label:hover { background: #2563eb; }
+#file-input { display: none; }
+
+/* Main layout */
+#main {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 20px;
+}
+.hidden { display: none !important; }
+
+/* Left panel */
+#left-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Video */
+#video-container {
+  background: #000;
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+}
+
+#video {
+  width: 100%;
+  max-height: 520px;
+  display: block;
+  object-fit: contain;
+}
+
+/* Controls card */
+.card {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+/* Scrubber */
+#scrubber-wrap {
+  position: relative;
+  height: 32px;
+  cursor: pointer;
+  margin-bottom: 14px;
+  user-select: none;
+}
+
+#scrubber-track {
+  position: absolute;
+  top: 50%; left: 0; right: 0;
+  transform: translateY(-50%);
+  height: 6px;
+  background: #e2e8f0;
+  border-radius: 3px;
+  pointer-events: none;
+}
+
+#scrubber-progress {
+  height: 100%;
+  background: #3b82f6;
+  border-radius: 3px;
+  width: 0%;
+}
+
+#scrubber-handle {
+  position: absolute;
+  top: 50%; left: 0%;
+  transform: translate(-50%, -50%);
+  width: 16px; height: 16px;
+  background: #3b82f6;
+  border: 2px solid white;
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+  cursor: grab;
+  z-index: 3;
+}
+
+.mark-tick {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 3px; height: 20px;
+  background: #ef4444;
+  border-radius: 2px;
+  z-index: 2;
+  cursor: pointer;
+}
+
+.mark-tick:hover { background: #dc2626; }
+
+.mark-tick::after {
+  content: attr(data-time);
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 5px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1e293b;
+  color: white;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.mark-tick:hover::after { display: block; }
+
+/* Selector */
+#selector-label {
+  font-size: 11px;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 6px;
+}
+
+#selector-wrap {
+  position: relative;
+  height: 32px;
+  user-select: none;
+  margin-bottom: 10px;
+}
+
+#selector-track {
+  position: absolute;
+  top: 50%; left: 0; right: 0;
+  transform: translateY(-50%);
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 4px;
+}
+
+#selector-fill {
+  position: absolute;
+  height: 100%;
+  background: rgba(59, 130, 246, 0.35);
+  border-radius: 4px;
+  left: 0%; width: 100%;
+  pointer-events: none;
+}
+
+.sel-handle {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 12px; height: 24px;
+  background: #3b82f6;
+  border: 2px solid white;
+  border-radius: 4px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  cursor: ew-resize;
+  z-index: 3;
+}
+
+/* Time & buttons */
+#time-display {
+  font-size: 12px;
+  color: #94a3b8;
+  text-align: right;
+  margin-bottom: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+#btn-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.btn {
+  padding: 8px 18px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.btn-blue  { background: #3b82f6; color: white; }
+.btn-blue:hover  { background: #2563eb; }
+.btn-red   { background: #ef4444; color: white; }
+.btn-red:hover   { background: #dc2626; }
+.btn-gray  { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+.btn-gray:hover  { background: #e2e8f0; }
+
+/* Settings */
+#settings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 20px;
+  font-size: 13px;
+  color: #475569;
+  align-items: center;
+}
+
+#settings label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+#settings input[type="number"] {
+  width: 50px;
+  padding: 3px 6px;
+  border: 1px solid #e2e8f0;
+  border-radius: 5px;
+  font-size: 13px;
+  color: #1e293b;
+}
+
+#settings select {
+  padding: 3px 6px;
+  border: 1px solid #e2e8f0;
+  border-radius: 5px;
+  font-size: 13px;
+  color: #1e293b;
+}
+
+/* Right panel */
+#right-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+#notes-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+#notes-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+#notes-header h2 {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+#notes-list {
+  flex: 1;
+  overflow-y: auto;
+  max-height: 580px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mark-item {
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 10px 12px;
+  border-left: 3px solid #e2e8f0;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.mark-item.active {
+  border-left-color: #ef4444;
+  box-shadow: 0 1px 6px rgba(239,68,68,0.12);
+  background: #fff5f5;
+}
+
+.mark-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.mark-time-btn {
+  font-size: 13px;
+  font-weight: 600;
+  color: #3b82f6;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+}
+.mark-time-btn:hover { text-decoration: underline; }
+
+.mark-delete-btn {
+  background: none;
+  border: none;
+  color: #cbd5e1;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  padding: 0;
+  font-family: inherit;
+}
+.mark-delete-btn:hover { color: #ef4444; }
+
+.mark-note {
+  width: 100%;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 56px;
+  color: #334155;
+  background: white;
+  line-height: 1.5;
+}
+.mark-note:focus { outline: none; border-color: #3b82f6; }
+
+#empty-notes {
+  text-align: center;
+  color: #94a3b8;
+  font-size: 13px;
+  padding: 48px 0;
+  line-height: 1.8;
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <h1>Board Beta Viewer</h1>
+
+  <div id="upload-section">
+    <p>Upload a climbing beta video to get started.</p>
+    <label id="file-input-label" for="file-input">Choose Video File</label>
+    <input type="file" id="file-input" accept="video/*">
+    <p class="hint">
+      Using an Instagram video? Download it first using a tool like
+      <a href="https://snapinsta.to" target="_blank" rel="noopener">snapinsta.to</a>,
+      then upload the file here.
+    </p>
+  </div>
+
+  <div id="main" class="hidden">
+    <div id="left-panel">
+
+      <div id="video-container">
+        <video id="video" preload="metadata"></video>
+      </div>
+
+      <div class="card">
+        <!-- Scrubber -->
+        <div id="scrubber-wrap">
+          <div id="scrubber-track">
+            <div id="scrubber-progress"></div>
+          </div>
+          <div id="scrubber-handle"></div>
+        </div>
+
+        <!-- Selector -->
+        <div id="selector-label">Loop selection</div>
+        <div id="selector-wrap">
+          <div id="selector-track">
+            <div id="selector-fill"></div>
+            <div id="sel-handle-a" class="sel-handle"></div>
+            <div id="sel-handle-b" class="sel-handle"></div>
+          </div>
+        </div>
+
+        <div id="time-display">0:00.0 / 0:00.0</div>
+
+        <div id="btn-row">
+          <button class="btn btn-blue" id="btn-play">Play</button>
+          <button class="btn btn-red"  id="btn-mark">Mark Move</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div id="settings">
+          <label>
+            <input type="checkbox" id="pause-at-marks">
+            Pause at marks
+          </label>
+          <label>
+            Pause duration:
+            <input type="number" id="pause-duration" value="2" min="0.1" max="10" step="0.1"> s
+          </label>
+          <label>
+            Speed:
+            <select id="speed-select">
+              <option value="0.25">0.25x</option>
+              <option value="0.5">0.5x</option>
+              <option value="0.75">0.75x</option>
+              <option value="1" selected>1x</option>
+              <option value="1.5">1.5x</option>
+              <option value="2">2x</option>
+            </select>
+          </label>
+          <label>
+            <input type="checkbox" id="loop-selection">
+            Loop selection
+          </label>
+          <button class="btn btn-gray" id="clear-btn" style="margin-left:auto;font-size:12px;padding:5px 12px;">New Video</button>
+        </div>
+      </div>
+
+    </div>
+
+    <div id="right-panel">
+      <div class="card" id="notes-card">
+        <div id="notes-header">
+          <h2>Beta Notes</h2>
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-gray" id="import-btn" style="font-size:12px;padding:5px 12px;">Import</button>
+            <button class="btn btn-gray" id="copy-btn"   style="font-size:12px;padding:5px 12px;">Copy All</button>
+          </div>
+        </div>
+        <div id="notes-list">
+          <div id="empty-notes">
+            Press <strong>Mark Move</strong> while the video<br>
+            is playing to add beta notes.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State ────────────────────────────────────────────────────────────────────
+let marks = [];          // [{id, time, note}]
+let idCounter = 0;
+let isPausedForMark = false;
+let manuallyPaused = false;
+let nextMarkIndex = 0;   // index of the next mark that should fire
+let selA = 0;            // fraction 0–1
+let selB = 1;
+let videoDuration = 0;
+let dragging = null;     // 'scrubber' | 'sel-a' | 'sel-b'
+
+// ── Elements ─────────────────────────────────────────────────────────────────
+const video          = document.getElementById('video');
+const fileInput      = document.getElementById('file-input');
+const uploadSection  = document.getElementById('upload-section');
+const mainEl         = document.getElementById('main');
+const scrubberWrap   = document.getElementById('scrubber-wrap');
+const scrubberProg   = document.getElementById('scrubber-progress');
+const scrubberHandle = document.getElementById('scrubber-handle');
+const selectorWrap   = document.getElementById('selector-wrap');
+const selectorTrack  = document.getElementById('selector-track');
+const selectorFill   = document.getElementById('selector-fill');
+const selHandleA     = document.getElementById('sel-handle-a');
+const selHandleB     = document.getElementById('sel-handle-b');
+const timeDisplay    = document.getElementById('time-display');
+const btnPlay        = document.getElementById('btn-play');
+const btnMark        = document.getElementById('btn-mark');
+const notesList      = document.getElementById('notes-list');
+const emptyNotes     = document.getElementById('empty-notes');
+const pauseAtMarksEl = document.getElementById('pause-at-marks');
+const pauseDurEl     = document.getElementById('pause-duration');
+const speedSelect    = document.getElementById('speed-select');
+const loopSelEl      = document.getElementById('loop-selection');
+const copyBtn        = document.getElementById('copy-btn');
+const importBtn      = document.getElementById('import-btn');
+
+// ── Persistence: IndexedDB for video, localStorage for marks ─────────────────
+const IDB_NAME = 'boardbeta', IDB_STORE = 'data', IDB_VERSION = 1;
+
+function openDB() {
+  return new Promise((res, rej) => {
+    const req = indexedDB.open(IDB_NAME, IDB_VERSION);
+    req.onupgradeneeded = e => e.target.result.createObjectStore(IDB_STORE);
+    req.onsuccess = e => res(e.target.result);
+    req.onerror   = e => rej(e.target.error);
+  });
+}
+
+async function saveVideoDB(blob) {
+  try {
+    const db = await openDB();
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).put(blob, 'video');
+  } catch (e) { console.warn('Could not save video to IndexedDB', e); }
+}
+
+async function loadVideoDB() {
+  try {
+    const db = await openDB();
+    return await new Promise(res => {
+      const req = db.transaction(IDB_STORE, 'readonly').objectStore(IDB_STORE).get('video');
+      req.onsuccess = () => res(req.result || null);
+      req.onerror   = () => res(null);
+    });
+  } catch { return null; }
+}
+
+function saveMarks() {
+  localStorage.setItem('boardbeta_marks', JSON.stringify(marks));
+  localStorage.setItem('boardbeta_idCounter', String(idCounter));
+}
+
+function loadMarks() {
+  try {
+    const raw = localStorage.getItem('boardbeta_marks');
+    if (raw) {
+      marks = JSON.parse(raw);
+      idCounter = parseInt(localStorage.getItem('boardbeta_idCounter') || '0');
+    }
+  } catch { marks = []; }
+}
+
+// ── File upload ───────────────────────────────────────────────────────────────
+fileInput.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  // Reset marks for a new video
+  marks = []; idCounter = 0;
+  saveMarks();
+  saveVideoDB(file);
+  loadVideoSrc(URL.createObjectURL(file));
+});
+
+function loadVideoSrc(url) {
+  video.src = url;
+  uploadSection.classList.add('hidden');
+  mainEl.classList.remove('hidden');
+}
+
+// ── Restore session on page load ──────────────────────────────────────────────
+(async () => {
+  loadMarks();
+  const blob = await loadVideoDB();
+  if (blob) {
+    loadVideoSrc(URL.createObjectURL(blob));
+  }
+})();
+
+// ── Video metadata ────────────────────────────────────────────────────────────
+video.addEventListener('loadedmetadata', () => {
+  videoDuration = video.duration;
+  selA = 0; selB = 1;
+  updateSelectorUI();
+  updateScrubberUI();
+  video.currentTime = 0.001; // render first frame instead of black
+  syncNextMarkIndex();
+  renderMarkTicks();
+  renderNotes();
+});
+
+// ── Sync next-mark pointer to current playback position ──────────────────────
+function syncNextMarkIndex() {
+  const t = video.currentTime;
+  nextMarkIndex = marks.findIndex(m => m.time > t);
+  if (nextMarkIndex === -1) nextMarkIndex = marks.length;
+}
+
+// ── Time update ───────────────────────────────────────────────────────────────
+video.addEventListener('timeupdate', () => {
+  const t = video.currentTime;
+
+  updateScrubberUI();
+  highlightCurrentMark(t);
+
+  // A–B loop
+  if (loopSelEl.checked && videoDuration > 0) {
+    if (t >= selB * videoDuration) {
+      video.currentTime = selA * videoDuration;
+      syncNextMarkIndex();
+      return;
+    }
+  }
+
+  // Pause at marks
+  if (pauseAtMarksEl.checked && !isPausedForMark && !video.paused) {
+    if (nextMarkIndex < marks.length && t >= marks[nextMarkIndex].time) {
+      const mark = marks[nextMarkIndex];
+      nextMarkIndex++; // advance before pausing so resume doesn't re-trigger this mark
+      video.currentTime = mark.time;
+      video.pause();
+      isPausedForMark = true;
+      const dur = parseFloat(pauseDurEl.value) * 1000 || 2000;
+      setTimeout(() => {
+        isPausedForMark = false;
+        if (!manuallyPaused) video.play();
+      }, dur);
+    }
+  }
+});
+
+// ── Scrubber UI ───────────────────────────────────────────────────────────────
+function updateScrubberUI() {
+  if (!videoDuration) return;
+  const pct = (video.currentTime / videoDuration) * 100;
+  scrubberProg.style.width = pct + '%';
+  scrubberHandle.style.left = pct + '%';
+  timeDisplay.textContent = fmt(video.currentTime) + ' / ' + fmt(videoDuration);
+}
+
+// ── Selector UI ───────────────────────────────────────────────────────────────
+function updateSelectorUI() {
+  const a = selA * 100, b = selB * 100;
+  selHandleA.style.left = a + '%';
+  selHandleB.style.left = b + '%';
+  selectorFill.style.left  = a + '%';
+  selectorFill.style.width = (b - a) + '%';
+}
+
+// ── Drag handling ─────────────────────────────────────────────────────────────
+scrubberWrap.addEventListener('mousedown', (e) => {
+  dragging = 'scrubber';
+  applyDrag(e);
+  e.preventDefault();
+});
+
+selHandleA.addEventListener('mousedown', (e) => { dragging = 'sel-a'; e.preventDefault(); e.stopPropagation(); });
+selHandleB.addEventListener('mousedown', (e) => { dragging = 'sel-b'; e.preventDefault(); e.stopPropagation(); });
+
+selectorWrap.addEventListener('mousedown', (e) => {
+  if (e.target === selectorWrap || e.target === selectorTrack || e.target === selectorFill) {
+    const f = frac(e, selectorWrap);
+    dragging = Math.abs(f - selA) < Math.abs(f - selB) ? 'sel-a' : 'sel-b';
+    applyDrag(e);
+    e.preventDefault();
+  }
+});
+
+document.addEventListener('mousemove', (e) => {
+  if (dragging) applyDrag(e);
+});
+
+document.addEventListener('mouseup', () => { dragging = null; });
+
+function applyDrag(e) {
+  if (dragging === 'scrubber') {
+    const f = frac(e, scrubberWrap);
+    if (videoDuration) seekTo(f * videoDuration);
+  } else if (dragging === 'sel-a') {
+    const f = snapToMark(frac(e, selectorWrap));
+    selA = Math.max(0, Math.min(f, selB - 0.01));
+    updateSelectorUI();
+    if (videoDuration) video.currentTime = selA * videoDuration; // preview only, don't update lastTime
+  } else if (dragging === 'sel-b') {
+    const f = snapToMark(frac(e, selectorWrap));
+    selB = Math.min(1, Math.max(f, selA + 0.01));
+    updateSelectorUI();
+    if (videoDuration) video.currentTime = selB * videoDuration; // preview only, don't update lastTime
+  }
+}
+
+// Snap fraction to nearest mark if within ~10px
+function snapToMark(f) {
+  if (!videoDuration || marks.length === 0) return f;
+  const rect = selectorWrap.getBoundingClientRect();
+  const snapFrac = 10 / rect.width;
+  for (const mark of marks) {
+    const mf = mark.time / videoDuration;
+    if (Math.abs(f - mf) < snapFrac) return mf;
+  }
+  return f;
+}
+
+function frac(e, el) {
+  const r = el.getBoundingClientRect();
+  return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+}
+
+// ── Seek helper ───────────────────────────────────────────────────────────────
+function seekTo(t) {
+  video.currentTime = t;
+  syncNextMarkIndex();
+}
+
+// ── Playback button (toggle) ──────────────────────────────────────────────────
+function updatePlayBtn() {
+  if (video.paused) {
+    btnPlay.textContent = 'Play';
+    btnPlay.className = 'btn btn-blue';
+  } else {
+    btnPlay.textContent = 'Pause';
+    btnPlay.className = 'btn btn-gray';
+  }
+}
+
+video.addEventListener('play',  updatePlayBtn);
+video.addEventListener('pause', updatePlayBtn);
+
+btnPlay.addEventListener('click', () => {
+  if (video.paused) {
+    manuallyPaused = false;
+    syncNextMarkIndex();
+    // If loop selection is active and playhead is outside selection, jump to start of selection
+    if (loopSelEl.checked && videoDuration > 0) {
+      const t = video.currentTime;
+      const start = selA * videoDuration;
+      const end   = selB * videoDuration;
+      if (t < start || t >= end) seekTo(start);
+    }
+    video.play();
+  } else {
+    manuallyPaused = true;
+    video.pause();
+  }
+});
+
+// ── New video / clear ─────────────────────────────────────────────────────────
+document.getElementById('clear-btn').addEventListener('click', async () => {
+  if (!confirm('Start over? This will clear the current video and all marks.')) return;
+  // Clear storage
+  localStorage.removeItem('boardbeta_marks');
+  localStorage.removeItem('boardbeta_idCounter');
+  try { const db = await openDB(); db.transaction(IDB_STORE, 'readwrite').objectStore(IDB_STORE).delete('video'); } catch {}
+  // Reset state
+  marks = []; idCounter = 0; videoDuration = 0;
+  video.pause();
+  video.src = '';
+  mainEl.classList.add('hidden');
+  uploadSection.classList.remove('hidden');
+  fileInput.value = '';
+  renderMarkTicks();
+  renderNotes();
+});
+
+// ── Mark move ─────────────────────────────────────────────────────────────────
+btnMark.addEventListener('click', () => {
+  if (!videoDuration) return;
+  const t = video.currentTime;
+  // Don't double-mark within 0.2s
+  if (marks.some(m => Math.abs(m.time - t) < 0.2)) return;
+  marks.push({ id: idCounter++, time: t, note: '' });
+  marks.sort((a, b) => a.time - b.time);
+  syncNextMarkIndex();
+  saveMarks();
+  renderMarkTicks();
+  renderNotes();
+});
+
+// ── Speed ─────────────────────────────────────────────────────────────────────
+speedSelect.addEventListener('change', () => {
+  video.playbackRate = parseFloat(speedSelect.value);
+});
+
+// ── Mark ticks on scrubber ────────────────────────────────────────────────────
+function renderMarkTicks() {
+  document.querySelectorAll('.mark-tick').forEach(el => el.remove());
+  if (!videoDuration) return;
+  marks.forEach(mark => {
+    const tick = document.createElement('div');
+    tick.className = 'mark-tick';
+    tick.style.left = (mark.time / videoDuration * 100) + '%';
+    tick.setAttribute('data-time', fmt(mark.time));
+    tick.addEventListener('click', (e) => { e.stopPropagation(); seekTo(mark.time); });
+    scrubberWrap.appendChild(tick);
+  });
+}
+
+// ── Notes panel ───────────────────────────────────────────────────────────────
+function renderNotes() {
+  notesList.innerHTML = '';
+  if (marks.length === 0) {
+    notesList.appendChild(emptyNotes);
+    return;
+  }
+  marks.forEach(mark => {
+    const item = document.createElement('div');
+    item.className = 'mark-item';
+    item.dataset.id = mark.id;
+
+    const header = document.createElement('div');
+    header.className = 'mark-item-header';
+
+    const timeBtn = document.createElement('button');
+    timeBtn.className = 'mark-time-btn';
+    timeBtn.textContent = 'Move @ ' + fmt(mark.time);
+    timeBtn.addEventListener('click', () => seekTo(mark.time));
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'mark-delete-btn';
+    delBtn.textContent = '×';
+    delBtn.title = 'Delete mark';
+    delBtn.addEventListener('click', () => {
+      marks = marks.filter(m => m.id !== mark.id);
+      syncNextMarkIndex();
+      saveMarks();
+      renderMarkTicks();
+      renderNotes();
+    });
+
+    header.appendChild(timeBtn);
+    header.appendChild(delBtn);
+
+    const ta = document.createElement('textarea');
+    ta.className = 'mark-note';
+    ta.placeholder = 'Add beta notes for this move…';
+    ta.value = mark.note;
+    ta.addEventListener('input', () => { mark.note = ta.value; saveMarks(); });
+
+    item.appendChild(header);
+    item.appendChild(ta);
+    notesList.appendChild(item);
+  });
+}
+
+// ── Highlight active mark ─────────────────────────────────────────────────────
+function highlightCurrentMark(t) {
+  if (marks.length === 0) return;
+  let active = null;
+  for (const m of marks) {
+    if (m.time <= t) active = m;
+    else break;
+  }
+  let scrolled = false;
+  notesList.querySelectorAll('.mark-item').forEach(item => {
+    const isActive = active && parseInt(item.dataset.id) === active.id;
+    const wasActive = item.classList.contains('active');
+    item.classList.toggle('active', isActive);
+    if (isActive && !wasActive && !scrolled) {
+      item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      scrolled = true;
+    }
+  });
+}
+
+// ── Copy notes ────────────────────────────────────────────────────────────────
+// Format: BOARDBETA_V1 header + one line per mark, parseable on import
+// Move N [M:SS.D]: note text
+
+copyBtn.addEventListener('click', () => {
+  if (marks.length === 0) {
+    copyBtn.textContent = 'Nothing yet';
+    setTimeout(() => { copyBtn.textContent = 'Copy All'; }, 1500);
+    return;
+  }
+  const lines = marks.map((m, i) =>
+    `Move ${i + 1} [${fmt(m.time)}]: ${m.note.trim() || '(no note)'}`
+  );
+  const text = 'BOARDBETA_V1\n' + lines.join('\n');
+  navigator.clipboard.writeText(text).then(() => {
+    copyBtn.textContent = 'Copied!';
+    setTimeout(() => { copyBtn.textContent = 'Copy All'; }, 1500);
+  });
+});
+
+// ── Import notes from clipboard ───────────────────────────────────────────────
+importBtn.addEventListener('click', async () => {
+  let text;
+  try { text = await navigator.clipboard.readText(); }
+  catch { importBtn.textContent = 'Allow clipboard'; setTimeout(() => { importBtn.textContent = 'Import'; }, 2000); return; }
+
+  const parsed = parseImport(text);
+  if (!parsed) {
+    importBtn.textContent = 'Bad format';
+    setTimeout(() => { importBtn.textContent = 'Import'; }, 2000);
+    return;
+  }
+
+  marks = parsed;
+  idCounter = marks.length;
+  syncNextMarkIndex();
+  saveMarks();
+  renderMarkTicks();
+  renderNotes();
+  importBtn.textContent = `Imported ${marks.length}`;
+  setTimeout(() => { importBtn.textContent = 'Import'; }, 2000);
+});
+
+function parseImport(text) {
+  const lines = text.trim().split('\n');
+  if (!lines[0].startsWith('BOARDBETA_V1')) return null;
+  const re = /^Move \d+ \[(\d+):(\d{2})\.(\d)\]: (.*)$/;
+  const result = [];
+  let id = 0;
+  for (const line of lines.slice(1)) {
+    const m = line.match(re);
+    if (!m) continue;
+    const time = parseInt(m[1]) * 60 + parseInt(m[2]) + parseInt(m[3]) / 10;
+    const note = m[4] === '(no note)' ? '' : m[4];
+    result.push({ id: id++, time, note });
+  }
+  return result.length > 0 ? result : null;
+}
+
+// ── Utility ───────────────────────────────────────────────────────────────────
+function fmt(s) {
+  const m   = Math.floor(s / 60);
+  const sec = Math.floor(s % 60).toString().padStart(2, '0');
+  const ms  = Math.floor((s % 1) * 10);
+  return `${m}:${sec}.${ms}`;
+}
+</script>
+</body>
+</html>
